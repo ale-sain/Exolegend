@@ -10,6 +10,11 @@
 #include "mazeTime.hpp"
 #undef abs
 
+# define ANTICIPATED_TIME 4.0
+
+int stagnationCounter = 0;
+const int STAGNATION_LIMIT = 200;
+
 class Vector2 {
 public:
     Vector2() : _x(0.), _y(0.) {}
@@ -39,14 +44,13 @@ private:
 };
 
 Gladiator* gladiator;
-bool allAroundPainted = false;
+const MazeSquare* nearestSquare;
+static float nextPosX;
+static float nextPosY;
 float lastAngle,nextAngle;
-float kw = 1.2;
-float kv = 1.f;
-float wlimit = 3.f;
-float vlimit = 0.6;
-float erreurPos = 0.07;
-
+float limitOffset = 0;
+float myTeamId;
+bool isAroundPainted = false;
 inline float moduloPi(float a) // return angle in [-pi; pi]
 {
     return (a < 0.0) ? (std::fmod(a - M_PI, 2*M_PI) + M_PI) : (std::fmod(a + M_PI, 2*M_PI) - M_PI);
@@ -54,6 +58,7 @@ inline float moduloPi(float a) // return angle in [-pi; pi]
 
 inline bool aim(Gladiator* gladiator, const Vector2& target, bool showLogs)
 {
+    gladiator->log("aim");
     constexpr float ANGLE_REACHED_THRESHOLD = 0.1;
     constexpr float POS_REACHED_THRESHOLD = 0.05;
 
@@ -72,16 +77,19 @@ inline bool aim(Gladiator* gladiator, const Vector2& target, bool showLogs)
     if (posError.norm2() < POS_REACHED_THRESHOLD) //
     {
         targetReached = true;
+        gladiator->log("position reached");
     } 
     else if (std::abs(angleError) > ANGLE_REACHED_THRESHOLD)
     {
-        float factor = 0.2;
+        gladiator->log("here1");
+        float factor = 0.5;
         if (angleError < 0)
             factor = - factor;
         rightCommand = factor;
         leftCommand = -factor;
     }
     else {
+        gladiator->log("here2");
         float factor = 0.5;
         rightCommand = factor;//+angleError*0.1  => terme optionel, "pseudo correction angulaire";
         leftCommand = factor;//-angleError*0.1   => terme optionel, "pseudo correction angulaire";
@@ -99,13 +107,13 @@ inline bool aim(Gladiator* gladiator, const Vector2& target, bool showLogs)
 }
 
 bool outOfBorder(MazeLimit limits, Position pos) {
-    if (pos.x < limits.x.min || pos.x > limits.x.max
-        || pos.y < limits.y.min || pos.y > limits.y.max)
+    if (pos.x < limits.x.min +limitOffset || pos.x > limits.x.max -limitOffset
+        || pos.y < limits.y.min + limitOffset || pos.y > limits.y.max - limitOffset)
         return true;
     return false;
 }
 
-int anticipatedUpdate(MazeTime *mazeTime) {
+void anticipatedUpdate(MazeTime *mazeTime) {
     static bool anticipated = false;
     static int lastPeriod = 0;
     static bool flag = false;
@@ -121,7 +129,7 @@ int anticipatedUpdate(MazeTime *mazeTime) {
     int periods = static_cast<int>(elapsed_seconds.count() / 20);
 
     int secondsToNextPeriod = 20 - (static_cast<int>(elapsed_seconds.count()) % 20);
-    if (secondsToNextPeriod <= 3 && !(anticipated)) {
+    if (secondsToNextPeriod <= ANTICIPATED_TIME && !(anticipated)) {
         mazeTime->newLimit();
         gladiator->log("Anticipating maze reduction, time : %f", elapsed_seconds.count());
         gladiator->log("Limit max : %.2f and min : %.2f", mazeTime->mazeLimit.x.max, mazeTime->mazeLimit.x.min);
@@ -132,23 +140,24 @@ int anticipatedUpdate(MazeTime *mazeTime) {
         lastPeriod = periods;
         anticipated = false; 
     }
-    return secondsToNextPeriod;
 }
 
-int around_check()
+
+int around_check(const MazeSquare forward)
 {
-    if (!gladiator->maze->getNearestSquare()->eastSquare && !gladiator->maze->getNearestSquare()->westSquare && !gladiator->maze->getNearestSquare()->southSquare && !gladiator->maze->getNearestSquare()->northSquare)
+    if (!isAroundPainted)
     {
         gladiator->log("every tile is painted");
         return 1;
     }
     else
     {
-        return 0;
+        if (forward.possession == myTeamId)
+            return 0;
+        else
+            return 1;
     }
 }
-
-
 double reductionAngle(double x)
 {
     x = fmod(x + PI, 2 * PI);
@@ -158,6 +167,7 @@ double reductionAngle(double x)
 }
 
 void reset() {
+    //fonction de reset:
     //initialisation de toutes vos variables avant le début d'un match
     gladiator->log("Call of reset function"); // GFA 4.5.1
 }
@@ -165,21 +175,71 @@ void reset() {
 void setup() {
     //instanciation de l'objet gladiator
     gladiator = new Gladiator();
+    //enregistrement de la fonction de reset qui s'éxecute à chaque fois avant qu'une partie commence
     gladiator->game->onReset(&reset); // GFA 4.4.1
 }
 
+int getRandomPos(int randomPos)
+{
+    if (randomPos == 0)
+    {
+        return 0;
+    }
+    if(randomPos == 1)
+    {
+        nextPosX = nearestSquare->eastSquare->i * 0.25 + 0.125;
+        nextPosY = nearestSquare->eastSquare->j * 0.25 + 0.125;
+        return 1;
+    }
+    else if (randomPos == 2)
+    {
+        nextPosX = nearestSquare->southSquare->i * 0.25 + 0.125;
+        nextPosY = nearestSquare->southSquare->j * 0.25 + 0.125;
+        return 2;
+    }
+    else if (randomPos == 3)
+    {
+         nextPosX = nearestSquare->westSquare->i * 0.25 + 0.125;
+            nextPosY = nearestSquare->westSquare->j * 0.25 + 0.125;
+            return 3;
+    }
+    else if (randomPos == 4)
+    {
+        nextPosX = nearestSquare->northSquare->i * 0.25 + 0.125;
+        nextPosY = nearestSquare->northSquare->j * 0.25 + 0.125;
+        return 4;
+    }
+
+}
+
+void try_rocket()
+{
+    if (gladiator->weapon->canLaunchRocket()) {
+          gladiator->weapon->launchRocket();
+          gladiator->log("After launch rocket call");
+    }
+}
+void forceAction() {
+    for (int outStuckingCounter = 0; outStuckingCounter < 250 ; outStuckingCounter++) {
+        if (aim(gladiator, {1.5, 1.5}, false))
+            break;
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        delay(50);
+        gladiator->log("FORCE ACTION!!!!!!!!!!!!!!");
+    }
+}
 
 void loop() {
+    
     static MazeTime *mazeTime = new MazeTime();
     if(gladiator->game->isStarted()) { //tester si un match à déjà commencer
-    gladiator->log("posX : %f posY:%f maxX:%f maxY:%f minX:%f minY:%f OutOfBorder : %d",gladiator->robot->getData().position.x,gladiator->robot->getData().position.y,mazeTime->mazeLimit.x.max,mazeTime->mazeLimit.y.max,mazeTime->mazeLimit.x.min,mazeTime->mazeLimit.y.min, outOfBorder(mazeTime->mazeLimit,gladiator->robot->getData().position));
         // code de votre stratégie
         //gladiator->log("NEAREST FORWARD :%d",nearestSquare->eastSquare);
         //gladiator->log("degree : %f", gladiator->robot->getData().position.a * 180/3.14f)
         //forwardTilePos->x = (gladiator->maze->getNearestSquare()->i - 2) * 20;
         //forwardTilePos->y = (gladiator->maze->getNearestSquare()->j + 2)* 20;
-
-        static unsigned i = 0;
+        
+        static unsigned i = 0;     
         static bool chooseNext = true;
         // bool showLogs = (i%50 == 0);
     
@@ -187,57 +247,74 @@ void loop() {
 
          // code de votre stratégie
         // Position myPosition = gladiator->robot->getData().position;
+        myTeamId = gladiator->robot->getData().teamId;
         RobotList robot_list = gladiator->game->getPlayingRobotsId();
         RobotData Robot2 = gladiator->game->getOtherRobotData(robot_list.ids[1]);
-        const MazeSquare* nearestSquare = gladiator->maze->getNearestSquare();
-        //gladiator->log("NEAREST FORWARD :%d",nearestSquare->eastSquare);
-        static float nextPosX;
-        static float nextPosY;
-        
-        int secondtonextperiod = anticipatedUpdate(mazeTime);
+
+        nearestSquare = gladiator->maze->getNearestSquare();
+        try_rocket();
+        anticipatedUpdate(mazeTime);
+        gladiator->log("%d", outOfBorder(mazeTime->mazeLimit, gladiator->robot->getData().position));
         if (outOfBorder(mazeTime->mazeLimit, gladiator->robot->getData().position)) {
             chooseNext = true;
+            limitOffset = 0.2;
             aim(gladiator, {1.5, 1.5}, false);
+            nearestSquare = gladiator->maze->getNearestSquare();
             gladiator->log("GOING TO CENTER");
-            //gladiator->log("Limit max : %.2f and min : %.2f", mazeTime->mazeLimit.x.max, mazeTime->mazeLimit.x.min);
-           // gladiator->log("currPos x = %.2f, y = %.2f", gladiator->robot->getData().position.x, gladiator->robot->getData().position.y);
+            stagnationCounter = 0;
         }
         else {
+            limitOffset = 0;
+            gladiator->log("MOVE");
             if (chooseNext)
-            {
-            if (nearestSquare->eastSquare != 0 && nearestSquare->eastSquare->possession != gladiator->robot->getData().teamId)
-            {
-                nextPosX = nearestSquare->eastSquare->i * 0.25 + 0.125;
-                nextPosY = nearestSquare->eastSquare->j * 0.25 + 0.125;
-            }
-            else if (nearestSquare->southSquare != 0 && nearestSquare->southSquare->possession != gladiator->robot->getData().teamId)
-            {
-                nextPosX = nearestSquare->southSquare->i * 0.25 + 0.125;
-                nextPosY = nearestSquare->southSquare->j * 0.25 + 0.125;
-            }
-            else if (nearestSquare->westSquare != 0 && nearestSquare->westSquare->possession != gladiator->robot->getData().teamId)
-            {
+            { 
+                if (nearestSquare->eastSquare != 0 && nearestSquare->eastSquare->possession != gladiator->robot->getData().teamId)
+                {
+                    gladiator->log("EAST", nextPosX, nextPosY);
 
-                nextPosX = nearestSquare->westSquare->i * 0.25 + 0.125;
-                nextPosY = nearestSquare->westSquare->j * 0.25 + 0.125;
-            }
-            else if (nearestSquare->northSquare != 0 && nearestSquare->northSquare->possession != gladiator->robot->getData().teamId)
-            {
+                    nextPosX = nearestSquare->eastSquare->i * 0.25 + 0.125;
+                    nextPosY = nearestSquare->eastSquare->j * 0.25 + 0.125;
+                }
+                else if (nearestSquare->southSquare != 0 && nearestSquare->southSquare->possession != gladiator->robot->getData().teamId)
+                {
+                    gladiator->log("SOUTH", nextPosX, nextPosY);
 
-                nextPosX = nearestSquare->northSquare->i * 0.25 + 0.125;
-                nextPosY = nearestSquare->northSquare->j * 0.25 + 0.125;
+                    nextPosX = nearestSquare->southSquare->i * 0.25 + 0.125;
+                    nextPosY = nearestSquare->southSquare->j * 0.25 + 0.125;
+                }
+                    else if (nearestSquare->westSquare != 0 && nearestSquare->westSquare->possession != gladiator->robot->getData().teamId)
+                {
+                    gladiator->log("WEST", nextPosX, nextPosY);
+
+                    nextPosX = nearestSquare->westSquare->i * 0.25 + 0.125;
+                    nextPosY = nearestSquare->westSquare->j * 0.25 + 0.125;
+                }
+                else if (nearestSquare->northSquare != 0 && nearestSquare->northSquare->possession != gladiator->robot->getData().teamId)
+                {
+                    gladiator->log("NORTH", nextPosX, nextPosY);
+
+                    nextPosX = nearestSquare->northSquare->i * 0.25 + 0.125;
+                    nextPosY = nearestSquare->northSquare->j * 0.25 + 0.125;
+                }
             }
-            chooseNext = false;
-            }
-            Position next = {nextPosX, nextPosY};
             if (!aim(gladiator, {nextPosX, nextPosY}, false))
             {
-                gladiator->log("DONT REACHED");
-                gladiator->log("x = %.2f, y = %.2f", next.x, next.y);
+                gladiator->log("GO");
             }
             else
+            {
+                gladiator->log("TRUE");
                 chooseNext = true;
+                stagnationCounter++;
+                gladiator->log("stagnation = %d", stagnationCounter);
+                if (stagnationCounter >= STAGNATION_LIMIT) {
+                    forceAction();
+                    stagnationCounter = 0; // Réinitialiser le compteur après l'action
+                }
+            }
         }
+        delay(10);
     }
-    delay(50);
 }
+    //delay(10);
+
