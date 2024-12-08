@@ -28,9 +28,3 @@ We had support from **Exotec's R&D engineers**, which provided insight into real
 Competing in **ExoLegend** was intense, with only **72 hours** to create a fully functional robotic AI. The most challenging part was adapting to the unpredictable **dynamic maze** and managing fatigue as the competition progressed. Our biggest lesson was the importance of **planning before coding**. More time spent on strategy earlier would have led to better results.  
 
 Despite the challenges, the experience was extremely rewarding. I improved my ability to **manage high-pressure deadlines**, **develop adaptable algorithms**, and **collaborate effectively with a team**.  
-
----
-
-## **Acknowledgements**  
-
-Special thanks to **Exotec** for organizing this incredible event and to my teammates Berke and @Azbk42 for their hard work, creativity, and dedication. 
