@@ -12,7 +12,7 @@ The objective was to program a robot capable of navigating an ever-evolving maze
 
 ## **Project Overview**  
 
-We had **72 hours** to design, code, and optimize our robot's behavior. The coding was done in **Python and C++**, allowing us to combine speed and flexibility.  
+We had **72 hours** to design, code, and optimize our robot's behavior. The coding was done in **C++**.  
 
 Our work was divided into key phases:  
 - **Pathfinding Algorithm**: To navigate and prioritize unexplored territory.  
