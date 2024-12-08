@@ -1,4 +1,4 @@
-# 🛠️ **The ExoLegend Hackathon : a robotic and automation challenge**
+# 🛠️ **The ExoLegend Hackathon**
 
 ---
 
