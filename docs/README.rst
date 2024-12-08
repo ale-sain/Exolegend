@@ -11,10 +11,10 @@
 
 
 ===========================
-Documtentaion de l'Exolegend
+Documentation de l'Exolegend
 ===========================
 
-**Bienvenu sur le repo officiel de l'Exolegend !**
+**Bienvenue sur le repo officiel de l'Exolegend !**
 
 Si vous êtes là pour défier l'arène c'est que vous êtes au bonne endroit.
 Avant de commencer à coder il va falloir bien suivre les instructions de
