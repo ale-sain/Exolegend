@@ -1,4 +1,4 @@
-# 🛠️ **The ExoLegend Hackathon**
+# **The ExoLegend Hackathon**
 
 ---
 
